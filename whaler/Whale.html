@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>"WhaleOptimization"</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1 class="text-center text-2xl font-bold mt-5">"Whale Optimization"</h1>
+    <table class="min-w-full">
+        <thead>
+            <tr>
+                <th class="border border-gray-300 p-2">Whale</th>
+                <th class="border border-gray-300 p-2">Position</th>
+                <th class="border border-gray-300 p-2">Fitness</th>
+            </tr>
+        </thead>
+        <tbody id="whaleTableBody"></tbody>
+    </table>
+
+    <div class="mt-5 text-center">
+        <p id="leaderFitness" class="text-lg font-semibold">Leader Fitness: </p>
+        <p id="leaderPosition" class="text-lg font-semibold">Leader Position: </p>
+    </div>
+
+    <div class="text-center mt-5">
+        <button id="startButton" class="bg-blue-500 text-white px-4 py-2 rounded">Start Optimization</button>
+    </div>
+
+    <div class="mt-5">
+        <canvas id="fitnessChart"></canvas>
+    </div>
+
+    <script type="module">
+        import { WhaleOptimizationPSO } from "./whaleOptimizationPSO.js";
+
+        const tableBody = document.getElementById('whaleTableBody');
+        const leaderFitnessElement = document.getElementById('leaderFitness');
+        const leaderPositionElement = document.getElementById('leaderPosition');
+        const startButton = document.getElementById('startButton');
+        const fitnessChartCtx = document.getElementById('fitnessChart').getContext('2d');
+
+        const nWhales = 10;
+        const dimensions = 2;
+        const iterations = 20;
+        const woa = new WhaleOptimizationPSO(nWhales, dimensions, iterations);
+
+        let iteration = 0;
+        let leaderFitnessData = [];
+        let labels = [];
+
+        const fitnessChart = new Chart(fitnessChartCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Leader Fitness',
+                    data: leaderFitnessData,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Iteration' }
+                    },
+                    y: {
+                        title: { display: true, text: 'Leader Fitness' },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        function updateTable() {
+            tableBody.innerHTML = '';
+            woa.particles.forEach((particle, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="border border-gray-300 p-2 text-center">${index + 1}</td>
+                    <td class="border border-gray-300 p-2 text-center">${particle.position.map(p => p.toFixed(2)).join(', ')}</td>
+                    <td class="border border-gray-300 p-2 text-center">${particle.fitness.toFixed(2)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+            leaderFitnessElement.textContent = `Leader Fitness: ${woa.globalBestFitness.toFixed(2)}`;
+            leaderPositionElement.textContent = `Leader Position: ${woa.globalBestPosition.map(lp => lp.toFixed(2)).join(', ')}`;
+        }
+
+        function updateChart() {
+            labels.push(iteration);
+            leaderFitnessData.push(woa.globalBestFitness);
+            fitnessChart.update();
+        }
+
+        function runWOAIteration() {
+            const interval = setInterval(() => {
+                woa.optimizeStep();
+                updateTable();
+                updateChart();
+                iteration++;
+
+                if (iteration >= iterations) {
+                    clearInterval(interval);
+                }
+            }, 500);
+        }
+
+        startButton.addEventListener('click', () => {
+            runWOAIteration();
+        });
+    </script>
+</body>
+</html>

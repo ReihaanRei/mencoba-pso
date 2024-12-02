@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gray Wolf Optimizer (GWO) TSP Visualization</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-6">
+        <h1 class="text-2xl font-bold text-center mb-6">
+            Gray Wolf Optimizer (GWO) TSP Visualization
+        </h1>
+
+        <div class="flex justify-center mb-4">
+            <button
+                id="startButton"
+                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            >
+                Start GWO Optimization
+            </button>
+        </div>
+
+        <div class="flex justify-center mb-6">
+            <div id="gbestFitness" class="text-lg font-semibold text-gray-800 mr-4">
+                Best Fitness:
+            </div>
+            <div id="gbestPosition" class="text-lg font-semibold text-gray-800">
+                Best Route:
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="col-span-1 md:col-span-1 text-center">
+                <h2 class="text-xl font-semibold mb-4">Best Route Map</h2>
+                <canvas id="routeCanvas" width="400" height="400"></canvas>
+            </div>
+
+            <div class="col-span-1 md:col-span-1 text-center">
+                <h2 class="text-xl font-semibold mb-4">Fitness Chart</h2>
+                <canvas id="fitnessChart" width="600" height="400"></canvas>
+            </div>
+
+            <div class="mt-6">
+                <h2 class="text-xl font-semibold text-center mb-4">Wolf Population</h2>
+                <table class="min-w-full bg-white rounded-lg shadow-lg">
+                    <thead>
+                        <tr>
+                            <th class="border-b p-2 text-left">Wolf #</th>
+                            <th class="border-b p-2 text-left">Route</th>
+                            <th class="border-b p-2 text-left">Fitness</th>
+                        </tr>
+                    </thead>
+                    <tbody id="particleTableBody" class="text-gray-700"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { GrayWolfOptimizer } from "./gwo.js";
+        import { tspDistance } from "./gwo.js";
+    
+        const routeCanvas = document.getElementById("routeCanvas").getContext("2d");
+        const gbestFitnessElement = document.getElementById("gbestFitness");
+        const gbestPositionElement = document.getElementById("gbestPosition");
+        const startButton = document.getElementById("startButton");
+        const fitnessChartCtx = document.getElementById("fitnessChart").getContext("2d");
+        const tableBody = document.getElementById("particleTableBody");
+
+        // Mengganti kota-kota dengan kota di Provinsi Sumatera Barat
+        const cities = ["Padang", "Bukittinggi", "Pariaman", "Payakumbuh", "Solok"];
+
+        // Menghitung jarak antar kota (dalam hal ini, kita menggunakan jarak fiktif)
+        const distances = [
+            [0, 90, 50, 85, 110],
+            [90, 0, 35, 70, 95],
+            [50, 35, 0, 40, 60],
+            [85, 70, 40, 0, 50],
+            [110, 95, 60, 50, 0],
+        ];
+    
+        const gwo = new GrayWolfOptimizer(20, cities.length, tspDistance, distances, 100);
+        let iteration = 0;
+        const maxIterations = 20;
+    
+        // Inisialisasi grafik fitness
+        const fitnessChart = new Chart(fitnessChartCtx, {
+            type: "line",
+            data: {
+                labels: [], // Iterasi akan ditambahkan di sini
+                datasets: [
+                    {
+                        label: "Best Fitness",
+                        data: [], // Nilai fitness akan ditambahkan di sini
+                        borderColor: "rgb(75, 192, 192)",
+                        backgroundColor: "rgba(75, 192, 192, 0.2)",
+                        fill: true,
+                        tension: 0.1,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { display: true, title: { display: true, text: "Iterations" } },
+                    y: { display: true, title: { display: true, text: "Fitness Value" } },
+                },
+            },
+        });
+    
+        // Fungsi untuk menggambar rute di canvas
+        function drawRoute(route) {
+            routeCanvas.clearRect(0, 0, 400, 400);
+
+            // Menampilkan nama kota
+            route.forEach((cityIndex, index) => {
+                const x = (cityIndex % 3) * 130 + 50;
+                const y = Math.floor(cityIndex / 3) * 130 + 50;
+                routeCanvas.beginPath();
+                routeCanvas.arc(x, y, 5, 0, 2 * Math.PI);
+                routeCanvas.fillStyle = "black";
+                routeCanvas.fill();
+                routeCanvas.fillText(cities[cityIndex], x + 10, y + 10);
+            });
+
+            routeCanvas.beginPath();
+            route.forEach((cityIndex, i) => {
+                const x = (cityIndex % 3) * 130 + 50;
+                const y = Math.floor(cityIndex / 3) * 130 + 50;
+                if (i === 0) routeCanvas.moveTo(x, y);
+                else routeCanvas.lineTo(x, y);
+            });
+            routeCanvas.closePath();
+            routeCanvas.strokeStyle = "blue";
+            routeCanvas.stroke();
+        }
+    
+        // Fungsi untuk memperbarui tabel wolf population
+        function updateWolfPopulation() {
+            tableBody.innerHTML = ""; // Clear tabel
+    
+            gwo.population.forEach((wolf, index) => {
+                const row = document.createElement("tr");
+    
+                const wolfCell = document.createElement("td");
+                wolfCell.classList.add("border-b", "p-2", "text-left");
+                wolfCell.textContent = `Wolf ${index + 1}`;
+                row.appendChild(wolfCell);
+    
+                const positionCell = document.createElement("td");
+                positionCell.classList.add("border-b", "p-2", "text-left");
+                positionCell.textContent = wolf.position.map(i => cities[i]).join(" -> ");
+                row.appendChild(positionCell);
+    
+                const fitnessCell = document.createElement("td");
+                fitnessCell.classList.add("border-b", "p-2", "text-left");
+                fitnessCell.textContent = Math.round(-wolf.fitness); // Fitness adalah nilai negatif
+                row.appendChild(fitnessCell);
+    
+                tableBody.appendChild(row);
+            });
+        }
+    
+        // Event listener untuk tombol start
+        startButton.addEventListener("click", () => {
+            const interval = setInterval(() => {
+                if (iteration >= maxIterations) {
+                    clearInterval(interval);
+                    return;
+                }
+    
+                // Update posisi dan fitness wolf
+                gwo.updatePositions(iteration);
+    
+                // Update info best fitness dan best route
+                gbestFitnessElement.textContent = `Best Fitness: ${Math.round(-gwo.alpha.fitness)}`;
+                gbestPositionElement.textContent = `Best Route: ${gwo.alpha.position.map(i => cities[i]).join(" -> ")}`;
+    
+                // Perbarui grafik fitness
+                fitnessChart.data.labels.push(iteration);
+                fitnessChart.data.datasets[0].data.push(-gwo.alpha.fitness); // Pastikan nilai fitness adalah negatif
+                fitnessChart.update();
+    
+                // Perbarui grafik rute
+                drawRoute(gwo.alpha.position);
+    
+                // Perbarui tabel wolf population
+                updateWolfPopulation();
+    
+                iteration++;
+            }, 500); // Waktu per iterasi (ms)
+        });
+    </script>    
+</body>
+</html>

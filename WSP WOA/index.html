@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whale Optimization Algorithm (WOA) TSP Visualization</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-6">
+        <h1 class="text-2xl font-bold text-center mb-6">
+            Whale Optimization Algorithm (WOA) TSP Visualization
+        </h1>
+
+        <div class="flex justify-center mb-4">
+            <button
+                id="startButton"
+                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            >
+                Start WOA Optimization
+            </button>
+        </div>
+
+        <div class="flex justify-center mb-6">
+            <div id="gbestFitness" class="text-lg font-semibold text-gray-800 mr-4">
+                Best Fitness:
+            </div>
+            <div id="gbestPosition" class="text-lg font-semibold text-gray-800">
+                Best Route:
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="col-span-1 md:col-span-1 text-center">
+                <h2 class="text-xl font-semibold mb-4">Best Route Map</h2>
+                <canvas id="routeCanvas" width="400" height="400"></canvas>
+            </div>
+
+            <div class="col-span-1 md:col-span-1 text-center">
+                <h2 class="text-xl font-semibold mb-4">Fitness Chart</h2>
+                <canvas id="fitnessChart" width="600" height="400"></canvas>
+            </div>
+
+            <div class="mt-6">
+                <h2 class="text-xl font-semibold text-center mb-4">Whale Population</h2>
+                <table class="min-w-full bg-white rounded-lg shadow-lg">
+                    <thead>
+                        <tr>
+                            <th class="border-b p-2 text-left">Whale #</th>
+                            <th class="border-b p-2 text-left">Route</th>
+                            <th class="border-b p-2 text-left">Fitness</th>
+                        </tr>
+                    </thead>
+                    <tbody id="particleTableBody" class="text-gray-700"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { WhaleOptimizer } from "./whale.js";
+        import { tspDistance } from "./whale.js";
+
+        const cities = ["Padang", "Bukittinggi", "Pariaman", "Payakumbuh", "Solok"];
+        const distances = [
+            [0, 90, 50, 85, 110],
+            [90, 0, 35, 70, 95],
+            [50, 35, 0, 40, 60],
+            [85, 70, 40, 0, 50],
+            [110, 95, 60, 50, 0],
+        ];
+
+        const woa = new WhaleOptimizer(20, cities.length, tspDistance, distances, 100);
+        let iteration = 0;
+        const maxIterations = 20;
+
+        const routeCanvas = document.getElementById("routeCanvas").getContext("2d");
+        const gbestFitnessElement = document.getElementById("gbestFitness");
+        const gbestPositionElement = document.getElementById("gbestPosition");
+        const startButton = document.getElementById("startButton");
+        const fitnessChartCtx = document.getElementById("fitnessChart").getContext("2d");
+        const tableBody = document.getElementById("particleTableBody");
+
+        const fitnessChart = new Chart(fitnessChartCtx, {
+            type: "line",
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: "Best Fitness",
+                        data: [],
+                        borderColor: "rgb(75, 192, 192)",
+                        backgroundColor: "rgba(75, 192, 192, 0.2)",
+                        fill: true,
+                        tension: 0.1,
+                    },
+                ],
+            },
+        });
+
+        function drawRoute(route) {
+            routeCanvas.clearRect(0, 0, 400, 400);
+            route.forEach((cityIndex, index) => {
+                const x = (cityIndex % 3) * 130 + 50;
+                const y = Math.floor(cityIndex / 3) * 130 + 50;
+                routeCanvas.beginPath();
+                routeCanvas.arc(x, y, 5, 0, 2 * Math.PI);
+                routeCanvas.fillStyle = "black";
+                routeCanvas.fill();
+                routeCanvas.fillText(cities[cityIndex], x + 10, y + 10);
+            });
+
+            routeCanvas.beginPath();
+            route.forEach((cityIndex, i) => {
+                const x = (cityIndex % 3) * 130 + 50;
+                const y = Math.floor(cityIndex / 3) * 130 + 50;
+                if (i === 0) routeCanvas.moveTo(x, y);
+                else routeCanvas.lineTo(x, y);
+            });
+            routeCanvas.closePath();
+            routeCanvas.strokeStyle = "blue";
+            routeCanvas.stroke();
+        }
+
+        function updateWhalePopulation() {
+            tableBody.innerHTML = "";
+            woa.population.forEach((whale, index) => {
+                const row = document.createElement("tr");
+
+                const whaleCell = document.createElement("td");
+                whaleCell.classList.add("border-b", "p-2", "text-left");
+                whaleCell.textContent = `Whale ${index + 1}`;
+                row.appendChild(whaleCell);
+
+                const positionCell = document.createElement("td");
+                positionCell.classList.add("border-b", "p-2", "text-left");
+                positionCell.textContent = whale.position.map((i) => cities[i]).join(" -> ");
+                row.appendChild(positionCell);
+
+                const fitnessCell = document.createElement("td");
+                fitnessCell.classList.add("border-b", "p-2", "text-left");
+                fitnessCell.textContent = Math.round(-whale.fitness); // Fitness adalah nilai negatif
+                row.appendChild(fitnessCell);
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        startButton.addEventListener("click", () => {
+            const interval = setInterval(() => {
+                if (iteration >= maxIterations) {
+                    clearInterval(interval);
+                    return;
+                }
+
+                woa.updatePositions(iteration);
+
+                gbestFitnessElement.textContent = `Best Fitness: ${Math.round(-woa.bestWhale.fitness)}`;
+                gbestPositionElement.textContent = `Best Route: ${woa.bestWhale.position
+                    .map((i) => cities[i])
+                    .join(" -> ")}`;
+                fitnessChart.data.labels.push(iteration);
+                fitnessChart.data.datasets[0].data.push(-woa.bestWhale.fitness);
+                fitnessChart.update();
+                drawRoute(woa.bestWhale.position);
+                updateWhalePopulation();
+                iteration++;
+            }, 500);
+        });
+    </script>
+</body>
+</html>

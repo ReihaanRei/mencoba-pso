@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grey Wolf Optimizer (GWO) Visualization</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100">
+
+    <div class="container mx-auto p-6">
+        <h1 class="text-2xl font-bold text-center mb-6">Grey Wolf Optimizer (GWO) Visualization</h1>
+        
+        <div class="flex justify-center mb-4">
+            <button id="startButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Start GWO Optimization
+            </button>
+        </div>
+
+        <div class="flex justify-center mb-6">
+            <div id="alphaFitness" class="text-lg font-semibold text-gray-800 mr-4">
+                Best Fitness (Alpha): 
+            </div>
+            <div id="alphaPosition" class="text-lg font-semibold text-gray-800">
+                Best Position (Alpha): 
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h2 class="text-xl font-semibold text-center mb-4">Wolf Population</h2>
+                <table class="min-w-full bg-white rounded-lg shadow-lg">
+                    <thead>
+                        <tr>
+                            <th class="border-b p-2 text-left">Wolf #</th>
+                            <th class="border-b p-2 text-left">Position</th>
+                            <th class="border-b p-2 text-left">Fitness</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wolfTableBody" class="text-gray-700"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Moved the chart below the table -->
+        <div class="mt-6">
+            <h2 class="text-xl font-semibold text-center mb-4">Best Fitness Over Iterations</h2>
+            <canvas id="fitnessChart"></canvas>
+        </div>
+    </div>
+
+    <script type="module">
+        import { maxProfit } from "./constraint.js";
+        import { GreyWolfOptimizer } from "./Grey_Wolf_Optimizer.js";
+
+        const tableBody = document.getElementById("wolfTableBody");
+        const alphaFitnessElement = document.getElementById("alphaFitness");
+        const alphaPositionElement = document.getElementById("alphaPosition");
+        const startButton = document.getElementById("startButton");
+        const fitnessChartCtx = document.getElementById("fitnessChart").getContext("2d");
+
+        const n_wolves = 10;  // Number of wolves in the population
+        const gwo = new GreyWolfOptimizer(n_wolves, 2, maxProfit, [0, 0], [20, 20], 50);
+
+        let iteration = 0;
+        let alphaFitnessData = [];
+        let labels = [];
+
+        const fitnessChart = new Chart(fitnessChartCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Best Fitness (Alpha)',
+                    data: alphaFitnessData,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { display: true, title: { display: true, text: 'Iterations' }},
+                    y: { display: true, title: { display: true, text: 'Fitness Value' }}
+                }
+            }
+        });
+
+        // Function to update the table with wolf positions and fitness
+        function updateTable() {
+            tableBody.innerHTML = '';
+            gwo.population.forEach((wolf, index) => {
+                const row = `<tr>
+                                <td class="border p-2">${index}</td>
+                                <td class="border p-2">(${wolf.position[0].toFixed(2)}, ${wolf.position[1].toFixed(2)})</td>
+                                <td class="border p-2">${wolf.fitness.toFixed(2)}</td>
+                            </tr>`;
+                tableBody.innerHTML += row;
+            });
+            alphaFitnessElement.textContent = `Best Fitness (Alpha): ${gwo.alpha.fitness.toFixed(2)}`;
+            alphaPositionElement.textContent = `Best Position (Alpha): (${gwo.alpha.position[0].toFixed(2)}, ${gwo.alpha.position[1].toFixed(2)})`;
+        }
+
+        // Function to update the chart with best fitness (Alpha) over iterations
+        function updateChart() {
+            labels.push(iteration);
+            alphaFitnessData.push(gwo.alpha.fitness.toFixed(2));
+            fitnessChart.update();
+        }
+
+        // Start the optimization when the button is clicked
+        startButton.addEventListener('click', () => {
+            function runGWOIterations() {
+                const maxIterations = 3;
+                let interval = setInterval(() => {
+                    gwo.updateWolves(iteration);  // Update wolf positions and fitness
+                    updateTable();
+                    updateChart();
+                    iteration++;
+
+                    if (iteration >= maxIterations) {
+                        clearInterval(interval);
+                    }
+                }, 500);
+            }
+            runGWOIterations();
+        });
+    </script>
+</body>
+</html>
